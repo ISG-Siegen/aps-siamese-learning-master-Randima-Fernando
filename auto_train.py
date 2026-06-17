@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import torch
-from aps_dataset import FetchAPSFeatureDataNew, EmbeddingNet, SiameseNet, APSFeatureDataset, GatedSiameseArm, ResidualGatedArm, stress_loss, train, leave_one_out
+from aps_data_handling import FetchAPSFeatureData, EmbeddingNet, SiameseNet, APSFeatureDataset, stress_loss, train, leave_one_out
 from torch.utils.data import Dataset, DataLoader
 from  utils import multi_plot,plot_loss
 from sklearn.preprocessing import StandardScaler
@@ -13,9 +13,9 @@ import sys
 
 
 # Fetches data from postgres Database. Returns two dataframes containing the APS vectors and the Meta Features
-# pwd = getpass.getpass()
-pwd = 'SlsFux11'
-FetchData = FetchAPSFeatureDataNew(pwd, 'ndcg@5')
+pwd = getpass.getpass()
+
+FetchData = FetchAPSFeatureData(pwd, 'ndcg@5')
 aps_dataset, feature_dataset = FetchData.get_data()
 
 # Baseline features
