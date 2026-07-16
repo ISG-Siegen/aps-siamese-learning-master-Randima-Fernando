@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 from torch.utils.data import Dataset, DataLoader
-from utils import heatmap, multi_plot
 from scipy.spatial import distance
 from sqlalchemy import create_engine
 
@@ -18,105 +17,29 @@ class FetchAPSFeatureData():
     """ 
     The following fetches the relevant data from the Postgres database and returns the datasets as pandas dataframes. 
     Primarily returns the APS dataset and the relevant Metafeatures of said dataset. 
-    Constructor arguments require the password for the postgres database, and the required metric from the APS to be extracted.
+    Constructor arguments require the metric from the APS to be extracted.
     """
 
 
-    def __init__(self, password, metric):
+    def __init__(self, metric):
 
         # Check metric
         available_metrics = ['ndcg@5', 'ndcg@10']
 
         # Include additional features path and make dataframe
-        features_path = "Datasets/Updated_Features/feature_data.csv"
+        features_path = "Dataset_Meta_Features/Dataset_Meta_features.csv"
         
 
         if metric not in available_metrics:
             raise ValueError(f"Invalid input. Choose from: {available_metrics}")
 
-        # Initializes password and engine for fetching data from postgres database
-        self.password = password
-        self.engine = create_engine(f"postgresql://randima:{self.password}@localhost:5432/coldstart_aps")
-
-        # Queries for accessing database
-
-        query_aps_ndcg5 = """
-        WITH pivoted_data AS(
-            SELECT
-                performance_results.data_set_name AS dataset,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name = 'BPR') AS BPR,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'CDAE') AS CDAE,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'ConvNCF') AS ConvNCF,
-                --SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'DGCF') AS DGCF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'DiffRec') AS DiffRec,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'DMF') AS DMF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'ENMF') AS ENMF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'FISM') AS FISM,
-                -- SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'GCMC') AS GCMC,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'ItemKNN') AS ItemKNN,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'LDiffRec') AS LDiffRec,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'LightGCN') AS LightGCN,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'LINE') AS LINE_alg,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'MacridVAE') AS MacridVAE,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'MultiDAE') AS MultiDAE,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'MultiVAE') AS MultiVAE,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NAIS') AS NAIS,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NCEPLRec') AS NCEPLRec,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NCL') AS NCL,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NeuMF') AS NeuMF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NGCF') AS NGCF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'NNCF') AS NNCF,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'Pop') AS Pop,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'Random') AS Random,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'RecVAE') AS RecVAE,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'SGL') AS SGL,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'SimpleX') AS SimpleX,
-                SUM(performance_results.ndcg5_avg) FILTER (WHERE performance_results.algorithm_name  = 'SpectralCF') AS SpectralCF
-
-            FROM
-                performance_results
-            GROUP BY
-                performance_results.data_set_name
-        )
-        SELECT
-            *FROM pivoted_data
-        WHERE bpr IS NOT NULL
-        AND cdae IS NOT NULL
-        AND convncf IS NOT NULL
-        -- AND dgcf IS NOT NULL
-        AND diffrec IS NOT NULL
-        AND dmf IS NOT NULL
-        AND enmf IS NOT NULL
-        AND fism IS NOT NULL
-        -- AND gcmc IS NOT NULL
-        AND itemknn IS NOT NULL
-        AND ldiffrec IS NOT NULL
-        AND lightgcn IS NOT NULL
-        AND line_alg IS NOT NULL
-        AND macridvae IS NOT NULL
-        AND multidae IS NOT NULL
-        AND multivae IS NOT NULL
-        AND nais IS NOT NULL
-        AND nceplrec IS NOT NULL
-        AND ncl IS NOT NULL
-        AND neumf IS NOT NULL
-        AND ngcf IS NOT NULL
-        AND nncf IS NOT NULL
-        AND pop IS NOT NULL
-        AND random IS NOT NULL
-        AND recvae IS NOT NULL
-        AND sgl IS NOT NULL
-        AND simplex IS NOT NULL
-        AND spectralcf IS NOT NULL;
-
-        """
 
         features_df = pd.read_csv(features_path).iloc[:]                                    # Dataframe of features
 
         
         if metric == 'ndcg@5':
-            aps_df = pd.read_sql(query_aps_ndcg5,                                           # Returns dataframe of ndcg5 with algorithms as columns and datasets as rows
-                        self.engine).set_index('dataset', drop = 'False')                   # Changes row indices to column 'dataset'
+            aps_df = pd.read_csv('APS_Data/APS_Complete.csv'                                # Returns dataframe of ndcg5 with algorithms as columns and datasets as rows
+                                 ).set_index('dataset', drop = 'False')                     # Changes row indices to column 'dataset'
         
 
         
@@ -124,7 +47,7 @@ class FetchAPSFeatureData():
         
 
         self.aps_dataset_df = aps_df.loc[mask].reset_index(drop= False)
-        self.meta_features_dataset_df = features_df.dropna(subset= ['num_users'])
+        self.meta_features_dataset_df = features_df.dropna(subset= ['num_users']).reset_index(drop= True)
 
     
     def get_data(self):

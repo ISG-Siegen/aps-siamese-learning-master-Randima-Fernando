@@ -2,10 +2,9 @@ import pandas as pd
 import numpy as np
 import torch
 from aps_data_handling import FetchAPSFeatureData, EmbeddingNet, SiameseNet, APSFeatureDataset, stress_loss, train, leave_one_out
-from torch.utils.data import Dataset, DataLoader
-from  utils import multi_plot,plot_loss
+from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
-from inference import test_left_out
+from validation import test_left_out
 import getpass
 import sys
 
@@ -13,30 +12,27 @@ import sys
 
 
 # Fetches data from postgres Database. Returns two dataframes containing the APS vectors and the Meta Features
-pwd = getpass.getpass()
 
-FetchData = FetchAPSFeatureData(pwd, 'ndcg@5')
+FetchData = FetchAPSFeatureData('ndcg@5')
 aps_dataset, feature_dataset = FetchData.get_data()
 
-# Baseline features
-# feature_dataset = feature_dataset.iloc[:, :41]
-# feature_dataset = pd.read_csv('Datasets/Updated_Features/feature_data_small.csv')
 
-aps_vectors_M = aps_dataset
+aps_dataset_complete = aps_dataset
+feature_dataset_complete = feature_dataset
 
 
 
 # Scaling the features
-feature_data = feature_dataset.iloc[:,1:].to_numpy()
-scaler = StandardScaler(with_mean= True, with_std= True)
-scaled_data = scaler.fit_transform(feature_data)
+# feature_data = feature_dataset.iloc[:,1:].to_numpy()
+# scaler = StandardScaler(with_mean= True, with_std= True)
+# scaled_data = scaler.fit_transform(feature_data)
 
-feature_vectors = pd.DataFrame(scaled_data, columns= feature_dataset.columns.tolist()[1:])
-feature_vectors.insert(0, column='dataset' ,value= feature_dataset['dataset'].to_list())
-feature_dataset_M = feature_vectors
+# feature_vectors = pd.DataFrame(scaled_data, columns= feature_dataset.columns.tolist()[1:])
+# feature_vectors.insert(0, column='dataset' ,value= feature_dataset['dataset'].to_list())
+# feature_dataset_complete = feature_vectors
 
 
-dataset_size = len(aps_vectors_M)
+dataset_size = len(aps_dataset_complete)
 
 for training_run in range(10):
     results = []
@@ -46,10 +42,35 @@ for training_run in range(10):
     for idx in range(dataset_size):
     # Leave one dataset out
 
-        aps_vectors, feature_vectors, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
+        aps_vectors, feature_vectors, aps_left_out, feature_left_out = leave_one_out(aps_dataset_complete, feature_dataset_complete, index= idx)
+
+
+        # Scaling the features
+        scaler = StandardScaler(with_mean= True, with_std= True)
+
+        # Convert to numpy arrays
+        train_features_raw = feature_vectors.iloc[:, 1:].to_numpy()
+        left_out_features_raw = feature_left_out.iloc[1:].to_numpy()
+
+        # Fit on train features
+        scaled_train_features = scaler.fit_transform(train_features_raw)
+
+        # Transform left-out features
+        left_out_features_reshaped = left_out_features_raw.reshape(1, -1)
+        scaled_left_out_array = scaler.transform(left_out_features_reshaped)
+        scaled_left_out_flat = scaled_left_out_array.flatten()
+
+        # Reconstruct the Dataframes and Series
+        scaled_feature_vectors = pd.DataFrame(scaled_train_features, columns=feature_vectors.columns[1:])
+        scaled_feature_vectors.insert(0, column='dataset', value=feature_vectors['dataset'].to_list())
+        feature_vectors = scaled_feature_vectors
+        
+        scaled_feature_left_out = pd.Series(data=[feature_left_out.iloc[0]] + list(scaled_left_out_flat),index=feature_left_out.index)
+        feature_left_out = scaled_feature_left_out
+
+
 
         dataset = APSFeatureDataset(aps_vectors= aps_vectors, feature_vectors= feature_vectors, needed_range= 65)
-
 
         device = (
                     "cuda"
@@ -74,18 +95,16 @@ for training_run in range(10):
 
         epochs = 20
 
-        # model = SiameseNet(EmbeddingNet(mode= 'leaky2', input_ftrs= 32)).to(device)
         model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= 137)).to(device)
-        # model = SiameseNet(GatedSiameseArm(input_dim= 137)).to(device)
-        # model = SiameseNet(ResidualGatedArm(input_dim= 137, hidden_dim= 256)).to(device)
 
         loss_func = stress_loss
 
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
+        # Lists for storing ongoing loss data and validation results
         loss_data = []
-        res_w = []
-        # loss_rmse_data = [[], [], [], [], []]
+        inter_val_results_list = []
+
 
         for t in range(epochs):
             print(f"Running Epoch{t}")
@@ -94,16 +113,19 @@ for training_run in range(10):
             if (t%2) == 0:
                 torch.save(model.state_dict(), 'weights/auto_train/temp_weights.pth')
                 weights_path = ('weights/auto_train/temp_weights.pth')
-                w = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
-                w.insert(0, t)
-                w.insert(0, aps_vectors_M.iloc[idx]['dataset'])
-                res_w.append(w)
+
+                # Calculates the validation results of current model
+                inter_val_results = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
+                inter_val_results.insert(0, t)
+                inter_val_results.insert(0, aps_dataset_complete.iloc[idx]['dataset'])
+                inter_val_results_list.append(inter_val_results)
 
         
-        print(pd.DataFrame(res_w, columns= ['dataset','Epoch', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range']))
+
+        print(pd.DataFrame(inter_val_results_list, columns= ['dataset','Epoch', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range']))
         
-        df_results = pd.concat([df_results, pd.DataFrame(res_w, columns= ['dataset','Epoch', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range'])])
-        df_results.to_csv(f'training_results/debug/validation_{training_run}.csv', index= False)
+        df_results = pd.concat([df_results, pd.DataFrame(inter_val_results_list, columns= ['dataset','Epoch', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range'])])
+        df_results.to_csv(f'training_results/validation_{training_run}.csv', index= False)
         
 
         torch.save(model.state_dict(), f'weights/auto_train/APS_SiamNet_weights_{idx}.pth')
@@ -112,8 +134,8 @@ for training_run in range(10):
         weights_path = (f'weights/auto_train/APS_SiamNet_weights_{idx}.pth')
 
         r = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
-        r.insert(0, aps_vectors_M.iloc[idx]['dataset'])
+        r.insert(0, aps_dataset_complete.iloc[idx]['dataset'])
         results.append(r)
-        pd.DataFrame(results, columns= ['dataset', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range']).to_csv(f'training_results/debug/test_results_{training_run}.csv', index = False)
+        pd.DataFrame(results, columns= ['dataset', 'rmse', 'nrmse', 'mae', 'nmae_mean', 'nmae_range']).to_csv(f'training_results/test_results_{training_run}.csv', index = False)
 
 
