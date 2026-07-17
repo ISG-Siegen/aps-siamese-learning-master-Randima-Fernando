@@ -398,12 +398,12 @@ def distance_rmse_mae(aps, embedded, relevant_datasets):
 
 
 
-def show_test_results_box_plots(test_num, y_limit = 100, metric = 'nmae_mean', ax_line = (10, 20, 40)):
+def show_test_results_box_plots( y_limit = 100, meta_ftr_config = '137_meta_features' ,metric = 'nmae_mean', ax_line = (10, 20, 40)):
     results_nmae = pd.DataFrame({})
-    results_nmae['dataset'] = pd.read_csv(f'training_results/{test_num}th_test/test_results_0.csv')['dataset']
+    results_nmae['dataset'] = pd.read_csv(f'training_results/{meta_ftr_config}/test_results_0.csv')['dataset']
 
     for i in range(10):
-        results_df = pd.read_csv(f'training_results/{test_num}th_test/test_results_{i}.csv')
+        results_df = pd.read_csv(f'training_results/{meta_ftr_config}/test_results_{i}.csv')
         results_nmae[f'{metric}_{i}'] = results_df[metric]
 
     df_sorted = results_nmae.assign(row_mean= results_nmae.iloc[:,1:].mean(axis=1)).sort_values("row_mean")
@@ -499,8 +499,7 @@ def show_test_results_box_plots_extra(test_num, y_limit = 100, metric = 'nmae_me
 
 def show_metric_variation(test_num1, test_num2, dataset_idx, y_limit = 90, ran = 9):
 
-    available_datasets = pd.read_csv(f'training_results/{test_num1}th_test/test_results_0.csv')['dataset'].to_list()
-
+    available_datasets = pd.read_csv(f'training_results/137_meta_features/test_results_0.csv')['dataset'].to_list()
     
     plot_data_list_1 = []
     plot_data_list_2 = []

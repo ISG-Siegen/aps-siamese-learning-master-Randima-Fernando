@@ -20,18 +20,6 @@ aps_dataset, feature_dataset = FetchData.get_data()
 aps_dataset_complete = aps_dataset
 feature_dataset_complete = feature_dataset
 
-
-
-# Scaling the features
-# feature_data = feature_dataset.iloc[:,1:].to_numpy()
-# scaler = StandardScaler(with_mean= True, with_std= True)
-# scaled_data = scaler.fit_transform(feature_data)
-
-# feature_vectors = pd.DataFrame(scaled_data, columns= feature_dataset.columns.tolist()[1:])
-# feature_vectors.insert(0, column='dataset' ,value= feature_dataset['dataset'].to_list())
-# feature_dataset_complete = feature_vectors
-
-
 dataset_size = len(aps_dataset_complete)
 
 for training_run in range(10):
@@ -95,7 +83,7 @@ for training_run in range(10):
 
         epochs = 20
 
-        model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= 137)).to(device)
+        model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= 45)).to(device)
 
         loss_func = stress_loss
 
@@ -128,10 +116,10 @@ for training_run in range(10):
         df_results.to_csv(f'training_results/validation_{training_run}.csv', index= False)
         
 
-        torch.save(model.state_dict(), f'weights/auto_train/APS_SiamNet_weights_{idx}.pth')
+        torch.save(model.state_dict(), f'weights/auto_train/training_run_{training_run}/APS_SiamNet_weights_{idx}.pth')
         print("Model saved!")
 
-        weights_path = (f'weights/auto_train/APS_SiamNet_weights_{idx}.pth')
+        weights_path = (f'weights/auto_train/training_run_{training_run}/APS_SiamNet_weights_{idx}.pth')
 
         r = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
         r.insert(0, aps_dataset_complete.iloc[idx]['dataset'])

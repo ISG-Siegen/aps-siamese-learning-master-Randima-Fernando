@@ -7,7 +7,7 @@ import random
 from torch.utils.data import Dataset, DataLoader
 from scipy.spatial import distance
 from sqlalchemy import create_engine
-
+import sys
 
 
 
@@ -27,7 +27,9 @@ class FetchAPSFeatureData():
         available_metrics = ['ndcg@5', 'ndcg@10']
 
         # Include additional features path and make dataframe
-        features_path = "Dataset_Meta_Features/Dataset_Meta_features.csv"
+        # features_path = "Dataset_Meta_Features/Dataset_Meta_features.csv"
+        # features_path = "Dataset_Meta_Features/75_Dataset_Meta_features.csv"
+        features_path = "Dataset_Meta_Features/45_Dataset_Meta_features.csv"
         
 
         if metric not in available_metrics:
@@ -59,7 +61,7 @@ class FetchAPSFeatureData():
 class APSFeatureDataset(Dataset):
     """ 
     The following Dataset should return upon indexing the meta features for two datasets and the corresponding 
-    Euclidean distance between the two 
+    Euclidean distance between the two in the Algorithm Performance Space
     """
 
 
@@ -86,14 +88,14 @@ class APSFeatureDataset(Dataset):
 
             df_aps_dist['Distance'] = aps_distances                                        # Assigns distance data to dataframe
 
-
             # Makes a sorted list of APS vectors corresponding to a sorted distance dataframe and concatenates two
             aps_dist_sorted = df_aps_dist.sort_values('Distance', ascending= True).reset_index(drop= True)
             feature_vectors = feature_vectors.set_index("dataset", drop= False)
             sorted_features = feature_vectors.loc[aps_dist_sorted['dataset'].to_list()].reset_index(drop= True)
             feature_vectors = feature_vectors.reset_index(drop= True)
 
-            # Includes the APS vector of the base/anchor dataset to the main dataframe. Hence column 0-1: [Dataset, Distance] column 2-30:[Anchor] column 31:60: [Other]
+
+            # Includes the APS vector of the base/anchor dataset to the main dataframe. Hence column 0-1: [Dataset, Distance] column 2-27:[Anchor] column 28:53: [Other]
             repeat_data = feature_vectors.iloc[[selected_dataset], 1:]
             temp_anchor_df = pd.DataFrame(np.repeat(repeat_data.values, dataset_size, axis=0), columns=repeat_data.columns)
             dist_aps_df = pd.concat([aps_dist_sorted, temp_anchor_df, sorted_features.iloc[:,1:]], axis=1)
@@ -101,7 +103,9 @@ class APSFeatureDataset(Dataset):
             distance_aps_vec.append(dist_aps_df.iloc[:needed_range])                # Includes each df to a list to be later concatenated
 
 
+
         self.dist_and_features = pd.concat(distance_aps_vec, axis = 0, ignore_index= True)
+        
 
     
     def __len__(self):
