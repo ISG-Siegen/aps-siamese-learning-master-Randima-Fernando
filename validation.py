@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from  utils import sort_by_distance, matches_closes_nots, distance_rmse_mae
 from sklearn.preprocessing import StandardScaler
-from aps_data_handling import EmbeddingNet, SiameseNet, FetchAPSFeatureData, leave_one_out
+from aps_data_handling import FetchAPSFeatureData, leave_one_out
+from network_blocks import EmbeddingNet, SiameseNet
 import getpass
 import sys
 
@@ -82,7 +83,7 @@ def test_left_out(aps_vectors, feature_dataset, aps_left_out, feature_left_out, 
     print(f"Using {device} device")
 
 
-    model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= input_features_num)).to(device)
+    model = SiameseNet(EmbeddingNet(mode= 'leaky6', input_ftrs= input_features_num)).to(device)
     model.load_state_dict(torch.load(weights_path, weights_only=True))
     model = model.to(device)
 
@@ -246,19 +247,22 @@ if __name__ == '__main__':
 
 
     mae = []
-    for idx in range(66):
-        weights_path = f'weights/traininrun_8_weights/APS_SiamNet_weights_{idx}.pth'
-        aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
+    for run in range(10):
+        for idx in range(66):
+            weights_path = f'weights/137_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
+            aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
 
-        # res = test_left_out(aps_vec, feature_data, aps_left_out, feature_left_out, 66, weights_path)
-        # print(res)
-        current_mae, dist = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
-        baseline_errors.loc[idx, 'model_mae'] = current_mae
-        baseline_errors.loc[idx, 'model_dist'] = dist
-        mae.append(current_mae)
+            # res = test_left_out(aps_vec, feature_data, aps_left_out, feature_left_out, 66, weights_path)
+            # print(res)
+            current_mae, dist = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
+            baseline_errors.loc[idx, 'model_mae'] = current_mae
+            baseline_errors.loc[idx, 'model_dist'] = dist
+            mae.append(current_mae)
+        
+        print(baseline_errors.mean(numeric_only= True)['model_mae'])
     
     
-    print(baseline_errors)
-    baseline_errors.to_csv('final_baseline_errors.csv')
-    print("\n\n", baseline_errors.mean(numeric_only= True))
+    # print(baseline_errors)
+    # baseline_errors.to_csv('final_baseline_errors.csv')
+    # print("\n\n", baseline_errors.mean(numeric_only= True))
 

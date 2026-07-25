@@ -97,15 +97,22 @@ def multi_plot_adv(data, labels, title, y_label ,y_lim, data_extra = None):
 
     # iter = range(1, len(data[0])+1)
     # iter = [int(i*2) for i in range(10)]
-    iter = [int(i*2) for i in range(20)]
+    iter = [int(i*2) for i in range(10)]
     
 
     for i in range(len(data)):
-        plt.plot(iter, data[i], label= f"curr_{labels[i]}", color = 'green' )
+        if i == 0:
+            plt.plot(iter, data[i], label= "With 137 Features", color = 'green' )
+        else:
+            plt.plot(iter, data[i], color = 'green' )
 
     if data_extra is not None:
         for i in range(len(data_extra)):
-            plt.plot(iter, data_extra[i], label= f"prev_{labels[i]}", color = 'red' )
+            if i == 0:
+                plt.plot(iter, data_extra[i], label= "With 45 Features", color = 'red')
+            else:
+                plt.plot(iter, data_extra[i], color = 'red')
+            
 
     plt.xticks(iter)
     plt.xlabel('Epochs')
@@ -398,7 +405,7 @@ def distance_rmse_mae(aps, embedded, relevant_datasets):
 
 
 
-def show_test_results_box_plots( y_limit = 100, meta_ftr_config = '137_meta_features' ,metric = 'nmae_mean', ax_line = (10, 20, 40)):
+def show_test_results_box_plots( y_limit = 100, meta_ftr_config = '137_meta_features' ,metric = 'nmae_mean', file_name = "137_features"):
     results_nmae = pd.DataFrame({})
     results_nmae['dataset'] = pd.read_csv(f'training_results/{meta_ftr_config}/test_results_0.csv')['dataset']
 
@@ -407,12 +414,9 @@ def show_test_results_box_plots( y_limit = 100, meta_ftr_config = '137_meta_feat
         results_nmae[f'{metric}_{i}'] = results_df[metric]
 
     df_sorted = results_nmae.assign(row_mean= results_nmae.iloc[:,1:].mean(axis=1)).sort_values("row_mean")
-    print(df_sorted['row_mean'].mean())
-    print(df_sorted[(df_sorted['row_mean'] < 0.05)].reset_index())
-    # print(df_sorted[(df_sorted['row_mean'] >= 10) & (df_sorted['row_mean'] < 20)].reset_index())
-    # print(df_sorted[(df_sorted['row_mean'] >= 20) & (df_sorted['row_mean'] < 40)].reset_index())
-    # print(df_sorted[(df_sorted['row_mean'] >= 40)].reset_index())
-    # sys.exit()
+    # print(df_sorted['row_mean'].reset_index().iloc[:53]['row_mean'].mean())
+    # print(df_sorted[(df_sorted['row_mean'] < 0.5)]['row_mean'].mean())
+
     results_nmae = df_sorted.drop(columns="row_mean")
 
 
@@ -430,22 +434,28 @@ def show_test_results_box_plots( y_limit = 100, meta_ftr_config = '137_meta_feat
                 vert = False)
 
 
-    # plt.axhline(y=ax_line[0], color='green', linestyle='--')
-    # plt.axhline(y=ax_line[1], color='blue', linestyle='--')
-    # plt.axhline(y=ax_line[2], color='red', linestyle='--')
-
-    # plt.ayhline(y=ax_line[0], color='green', linestyle='--')
-    plt.axvline(x=ax_line[0], color='green', linestyle='--')
-
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.xlabel('Mean Absolute Error', fontsize = 14)
     plt.xticks( ha='right', fontsize = 12)
     plt.yticks( ha='right', fontsize = 7)
-    # plt.ylim(0, y_limit)
     plt.xlim(0, y_limit)
     plt.tight_layout()
-    plt.savefig('my_plot.png', dpi=600, bbox_inches='tight')
+    plt.savefig(f'{file_name}.png', dpi=600, bbox_inches='tight')
     plt.show()
     
+    # plt.xscale('log')
+
+    # plt.xlabel('Mean Absolute Error', fontsize = 14)
+    # plt.xticks( ha='right', fontsize = 12)
+    # plt.yticks( ha='right', fontsize = 7)
+    
+    # # --- FIXED: Log scales cannot start at 0. 
+    # # Use a small positive number, or let Matplotlib auto-scale the left side.
+    # plt.xlim(left=0.01, right=y_limit) 
+    
+    # plt.tight_layout()
+    # plt.savefig(f'{file_name}.png', dpi=600, bbox_inches='tight')
+    # plt.show()
 
 
 
@@ -497,7 +507,7 @@ def show_test_results_box_plots_extra(test_num, y_limit = 100, metric = 'nmae_me
 
 
 
-def show_metric_variation(test_num1, test_num2, dataset_idx, y_limit = 90, ran = 9):
+def show_metric_variation(dataset_idx ,test1= '137_meta_features', test2 = '75_meta_features',metric = 'mae', y_limit = 90, ran = 9):
 
     available_datasets = pd.read_csv(f'training_results/137_meta_features/test_results_0.csv')['dataset'].to_list()
     
@@ -505,16 +515,150 @@ def show_metric_variation(test_num1, test_num2, dataset_idx, y_limit = 90, ran =
     plot_data_list_2 = []
 
     for i in range(10):
-        df_val = pd.read_csv(f'training_results/{test_num1}th_test/validation_{i}.csv')
-        plot_data = df_val[df_val['dataset'] == available_datasets[dataset_idx]].reset_index().loc[:ran,'nmae_mean']
+        df_val = pd.read_csv(f'training_results/{test1}/validation_{i}.csv')
+        plot_data = df_val[df_val['dataset'] == available_datasets[dataset_idx]].reset_index().loc[:, metric]
 
-        plot_data_list_1.append(plot_data.to_list())
+        # plot_data_list_1.append(plot_data.to_list())
+        plot_data_list_1.append(plot_data)
 
-        df_val = pd.read_csv(f'training_results/{test_num2}th_test/validation_{i}.csv')
-        plot_data = df_val[df_val['dataset'] == available_datasets[dataset_idx]].reset_index().loc[:ran, 'nmae_mean']
+        df_val = pd.read_csv(f'training_results/{test2}/validation_{i}.csv')
+        plot_data = df_val[df_val['dataset'] == available_datasets[dataset_idx]].reset_index().loc[:ran, metric]
 
         plot_data_list_2.append(plot_data.to_list())
 
 
-    plt.figure(figsize=(20,10))
-    multi_plot_adv(data= plot_data_list_1, labels= [f'{i}' for i in range(10)], title= available_datasets[dataset_idx], y_label= 'NMAE (%)', y_lim= y_limit, data_extra= plot_data_list_2)
+    # plt.figure(figsize=(20,10))
+    # multi_plot_adv(data= plot_data_list_1, labels= [f'{i}' for i in range(10)], title= available_datasets[dataset_idx], y_label= 'MAE', y_lim= y_limit, data_extra= plot_data_list_2)
+
+    plot_mae_variation(plot_data_list_1, figure_title= available_datasets[dataset_idx], y_lim= y_limit )
+
+
+
+def plot_mae_variation(data, figure_title, y_lim):
+
+    df = pd.concat(data, axis=1)
+    average_series = df.mean(axis=1)
+    # epochs = [(i*2)+1 for i in range(10)]
+    epochs = [i+1 for i in range(20)]
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+
+    ax.plot(epochs, df.values, color='steelblue', alpha=0.3)
+
+    ax.plot(epochs, average_series.values, color='red', linewidth=3, label='Average')
+
+    ax.set_xlabel("Epochs", fontsize = 14)
+    ax.set_ylabel(r"$MAE^k_{val}$", fontsize = 14)
+    ax.set_title(rf"$MAE^k_{{val}}$ variation of {figure_title}")
+    ax.set_xticks(epochs)
+
+    handles, labels = ax.get_legend_handles_labels()
+    # Just grab the last handle/label, which is our Average line
+    ax.legend([handles[-1]], [labels[-1]]) 
+
+    # plt.yscale('log')
+    plt.ylim(0, y_lim)
+    # plt.ylim(bottom = 0.1, top = 1) 
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.show()
+
+    # plt.xscale('log')
+    # plt.xlabel('Mean Absolute Error', fontsize = 14)
+    # plt.xticks( ha='right', fontsize = 12)
+    # plt.yticks( ha='right', fontsize = 7)
+    
+    # # --- FIXED: Log scales cannot start at 0. 
+    # # Use a small positive number, or let Matplotlib auto-scale the left side.
+    # plt.xlim(left=0.01, right=y_limit) 
+    
+    # plt.tight_layout()
+    # plt.savefig(f'{file_name}.png', dpi=600, bbox_inches='tight')
+    # plt.show()
+
+
+
+def plot_baselines(df):
+
+    df = df.set_index('dataset')
+    df.plot(
+        kind='line',          # Use 'bar' if you prefer a bar chart, though 66x7 bars will be very dense
+        figsize=(20, 15),      # Make it wide to accommodate 66 labels
+        # marker='o',           # Adds dots to the data points to make them clearer
+        alpha=0.7             # Makes the lines slightly transparent so overlaps are visible
+    )
+
+    plt.title(r'Variation of $\text{MAE}_{\text{coord}}$', fontsize=16)
+    plt.xlabel('Dataset', fontsize=14)
+    plt.ylabel(r'$\text{MAE}_{\text{coord}}$', fontsize=12)
+
+    # Rotate the 66 labels so they don't overlap each other
+    # plt.xticks(rotation=90)
+
+    plt.xticks(
+        ticks=range(len(df)),  # Creates exactly 66 tick marks
+        labels=df.index,       # Assigns your dataset names to those marks
+        rotation=90,                   # Turns them vertical so they fit
+        fontsize= 6                     # Shrinks the text (try 6 or 7 if still too big)
+    )
+
+    plt.grid(True, linestyle='--', alpha=0.5)
+
+    plt.legend(title='Baseline', bbox_to_anchor=(1.05, 1), loc='upper left') # Moves legend outside the plot
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_aps_model():
+    coordinates = [
+    (0.05, 0.1),
+    (0.1, 0.1),
+    (0.11, 0.06),
+    (0.04, 0.92),
+    (0.09, 0.95),
+    (0.9, 0.89),
+    (0.95, 0.12),
+    (0.84, 0.15),
+    (0.87, 0.09),
+    (0.92, 0.08),
+    (0.95,0.9),
+    (0.87,0.92),
+    (0.9, 0.8),
+    (0.4,0.55),
+    (0.45,0.55),
+    (0.6,0.45),
+    (0.55,0.49),
+    (0.5,0.4),
+    (0.4,0.49),
+
+    ]
+
+    # Unpack the coordinates into separate X and Y lists
+    x_coords = [point[0] for point in coordinates]
+    y_coords = [point[1] for point in coordinates]
+
+    # 2. Create the figure and axis
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    # 3. Set the background color to grey
+    # 'lightgrey' usually reads better for academic papers than a dark 'grey'
+    ax.set_facecolor('#f4f4f4') 
+
+    ax.plot([0, 1], [0, 1], color='dimgrey', linestyle='--', linewidth=1.5, zorder=2)
+
+
+    # 4. Plot the coordinates as crosses
+    # marker='x' makes the cross, s=100 controls the size, zorder=3 keeps them above the grid
+    ax.scatter(x_coords, y_coords, marker='x', color='blue', s=100, zorder=3)
+
+    # 5. Lock the axis limits from 0 to 1
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+
+    # 6. Label the axes
+    ax.set_xlabel('Performance of Algorithm 1 (e.g. nDCG)', fontsize=11)
+    ax.set_ylabel('Performance of Algorithm 2 (e.g. nDCG)', fontsize=11)
+
+    # 7. Clean up the layout and display
+    plt.tight_layout()
+    plt.show()

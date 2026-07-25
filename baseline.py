@@ -139,8 +139,6 @@ for idx in range(dataset_size):
     
 
 
-baseline_errors.to_csv('baseline_errors.csv', index=False)
-sys.exit()
 
 #
 # XGBoost Baseline and Random Forest Baseline ----------------------------------
@@ -187,6 +185,7 @@ for idx in range(dataset_size):
 print(baseline_errors)
 print(baseline_errors.mean(numeric_only= True))
 baseline_errors.to_csv('baseline_errors.csv', index=False)
+
 sys.exit()
 
 

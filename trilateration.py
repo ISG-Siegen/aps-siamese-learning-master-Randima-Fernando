@@ -147,10 +147,12 @@ if __name__ == '__main__':
     aps_vectors_M = aps_dataset
 
     baseline_errors = pd.read_csv('baseline_errors.csv')
-    baseline_errors['model_mae_nearest'] = np.nan
-    baseline_errors['model_dist_nearest'] = np.nan
-    baseline_errors['model_mae_tri'] = np.nan
-    baseline_errors['model_dist_tri'] = np.nan
+
+    for i in range(10):
+        baseline_errors[f'model{i}_mae_nearest'] = np.nan
+        baseline_errors[f'model{i}_dist_nearest'] = np.nan
+        baseline_errors[f'model{i}_mae_tri'] = np.nan
+        baseline_errors[f'model{i}_dist_tri'] = np.nan
 
 
 
@@ -165,21 +167,23 @@ if __name__ == '__main__':
 
 
     mae = []
-    for idx in range(66):
-        weights_path = f'weights/traininrun_8_weights/APS_SiamNet_weights_{idx}.pth'
-        aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
+    for run in range(10):
+        for idx in range(66):
+            weights_path = f'weights/137_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
+            aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
 
-        # res = test_left_out(aps_vec, feature_data, aps_left_out, feature_left_out, 66, weights_path)
-        # print(res)
-        errors = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
-        baseline_errors.loc[idx, 'model_mae_nearest'] = errors[0]
-        baseline_errors.loc[idx, 'model_dist_nearest'] = errors[1]
-        baseline_errors.loc[idx, 'model_mae_tri'] = errors[2]
-        baseline_errors.loc[idx, 'model_dist_tri'] = errors[3]
-        mae.append(errors[0])
-    
-    
-    print(baseline_errors)
+            # res = test_left_out(aps_vec, feature_data, aps_left_out, feature_left_out, 66, weights_path)
+            # print(res)
+            errors = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
+            baseline_errors.loc[idx, f'model{run}_mae_nearest'] = errors[0]
+            baseline_errors.loc[idx, f'model{run}_dist_nearest'] = errors[1]
+            baseline_errors.loc[idx, f'model{run}_mae_tri'] = errors[2]
+            baseline_errors.loc[idx, f'model{run}_dist_tri'] = errors[3]
+            mae.append(errors[0])
+        
+        
+        print(baseline_errors)
+        print("\n",baseline_errors.mean(numeric_only= True)[f'model{run}_mae_nearest'])
+        print(baseline_errors.mean(numeric_only= True)[f'model{run}_mae_tri'])
+
     baseline_errors.to_csv('final_baseline_errors.csv')
-    print("\n\n", baseline_errors.mean(numeric_only= True))
-

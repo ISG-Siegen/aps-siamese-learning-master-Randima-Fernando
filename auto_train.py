@@ -1,19 +1,19 @@
 import pandas as pd
 import numpy as np
 import torch
-from aps_data_handling import FetchAPSFeatureData, EmbeddingNet, SiameseNet, APSFeatureDataset, stress_loss, train, leave_one_out
+from aps_data_handling import FetchAPSFeatureData, APSFeatureDataset, leave_one_out
+from network_blocks import EmbeddingNet, SiameseNet, stress_loss, train
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 from validation import test_left_out
-import getpass
-import sys
+
 
 
 
 
 # Fetches data from postgres Database. Returns two dataframes containing the APS vectors and the Meta Features
 
-FetchData = FetchAPSFeatureData('ndcg@5')
+FetchData = FetchAPSFeatureData(metric='ndcg@5', num_features= 137)
 aps_dataset, feature_dataset = FetchData.get_data()
 
 
@@ -83,7 +83,7 @@ for training_run in range(10):
 
         epochs = 20
 
-        model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= 45)).to(device)
+        model = SiameseNet(EmbeddingNet(mode= 'leaky6', input_ftrs= 137)).to(device)
 
         loss_func = stress_loss
 
@@ -96,17 +96,17 @@ for training_run in range(10):
 
         for t in range(epochs):
             print(f"Running Epoch{t}")
-            train(train_dataloader, model, device, loss_func, optimizer, loss_data)
+            train(train_dataloader, model, device, loss_func, optimizer)
 
             if (t%2) == 0:
                 torch.save(model.state_dict(), 'weights/auto_train/temp_weights.pth')
                 weights_path = ('weights/auto_train/temp_weights.pth')
 
-                # Calculates the validation results of current model
-                inter_val_results = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
-                inter_val_results.insert(0, t)
-                inter_val_results.insert(0, aps_dataset_complete.iloc[idx]['dataset'])
-                inter_val_results_list.append(inter_val_results)
+            # Calculates the validation results of current model
+            inter_val_results = test_left_out(aps_vectors, feature_vectors, aps_left_out, feature_left_out, 66, weights_path)
+            inter_val_results.insert(0, t)
+            inter_val_results.insert(0, aps_dataset_complete.iloc[idx]['dataset'])
+            inter_val_results_list.append(inter_val_results)
 
         
 
