@@ -71,7 +71,7 @@ class APSFeatureDataset(Dataset):
     """
 
 
-    def __init__(self, aps_vectors, feature_vectors, needed_range = 20):
+    def __init__(self, aps_vectors, feature_vectors):
         super().__init__()
         distance_aps_vec = []                                                           # Temp list to store distances between APS vectors and the vectors themselves
         dataset_size = len(aps_vectors)

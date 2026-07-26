@@ -3,3 +3,12 @@ Meta_feature_extraction/datasets
 utils.py
 Figures
 Meta_feature_information.ods
+weights/traininrun_8_weights
+weights/auto_train
+training_results/1_set_for_sigmoid
+training_results/Amazon-Automotive
+training_results/FilmTrust
+training_results/KGRec-Music
+training_results/Movielens-1M
+training_results/Single Dataset
+training_results/with_leak
