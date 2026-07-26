@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import torch
 from aps_data_handling import FetchAPSFeatureData, leave_one_out
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsRegressor
@@ -41,9 +40,9 @@ baseline_errors['xgb_dist'] = np.nan
 
 
 
-#
-# Global Mean Basline --------------------------------
-#
+# =============================
+# Global Mean Basline
+# =============================
 
 dataset_size = len(aps_dataset_complete)
 
@@ -61,9 +60,9 @@ for idx in range(dataset_size):
 
 
 
-#
-# K Means ----------------------------------
-#
+# =============================
+# K Means 
+# =============================
 
 
 NUM_CLUSTERS = 5
@@ -116,9 +115,9 @@ for idx in range(dataset_size):
 
 
 
-#
-# K Nearest Neighbor ----------------------------------
-#
+# =============================
+# K Nearest Neighbor 
+# =============================
 
 
 for idx in range(dataset_size):
@@ -140,9 +139,9 @@ for idx in range(dataset_size):
 
 
 
-#
-# XGBoost Baseline and Random Forest Baseline ----------------------------------
-#
+# ============================================
+# XGBoost Baseline and Random Forest Baseline 
+# ============================================
 
 
 for idx in range(dataset_size):
@@ -181,28 +180,32 @@ for idx in range(dataset_size):
     baseline_errors.loc[idx, 'xgb_error'] = xgb_mae
     baseline_errors.loc[idx, 'xgb_dist'] = xgb_dist
     
-# print("KNN Error: ", baseline_errors['knn_error'].mean())
+
+
 print(baseline_errors)
 print(baseline_errors.mean(numeric_only= True))
-baseline_errors.to_csv('baseline_errors.csv', index=False)
-
-sys.exit()
+baseline_errors.to_csv('baseline_results/baseline_errors.csv', index=False)
 
 
-results_mae = pd.DataFrame({})
-test_num = 8
-metric = 'mae'
-results_mae['dataset'] = pd.read_csv(f'training_results/{test_num}th_test/test_results_0.csv')['dataset']
-
-for i in range(10):
-    results_df = pd.read_csv(f'training_results/{test_num}th_test/test_results_{i}.csv')
-    results_mae[f'{metric}_{i}'] = results_df[metric]
 
 
-# print(results_df)
-df_sorted = results_mae.assign(row_mean= results_mae.iloc[:,:].mean(numeric_only=True,axis=1)).sort_values("row_mean")
-df_row_means = df_sorted['row_mean'].copy()
-# print(df_sorted[(df_sorted['row_mean'] < 0.05)].reset_index())
+# sys.exit()
 
-print(baseline_errors.join(df_row_means))
+
+# results_mae = pd.DataFrame({})
+# test_num = 8
+# metric = 'mae'
+# results_mae['dataset'] = pd.read_csv(f'training_results/{test_num}th_test/test_results_0.csv')['dataset']
+
+# for i in range(10):
+#     results_df = pd.read_csv(f'training_results/{test_num}th_test/test_results_{i}.csv')
+#     results_mae[f'{metric}_{i}'] = results_df[metric]
+
+
+# # print(results_df)
+# df_sorted = results_mae.assign(row_mean= results_mae.iloc[:,:].mean(numeric_only=True,axis=1)).sort_values("row_mean")
+# df_row_means = df_sorted['row_mean'].copy()
+# # print(df_sorted[(df_sorted['row_mean'] < 0.05)].reset_index())
+
+# print(baseline_errors.join(df_row_means))
 

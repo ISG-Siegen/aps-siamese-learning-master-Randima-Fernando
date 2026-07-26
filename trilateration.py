@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
-from  utils import sort_by_distance, matches_closes_nots, distance_rmse_mae
+from  utils import sort_by_distance
 from sklearn.preprocessing import StandardScaler
-from aps_data_handling import EmbeddingNet, SiameseNet, leave_one_out, FetchAPSFeatureData
+from aps_data_handling import leave_one_out, FetchAPSFeatureData
+from network_blocks import EmbeddingNet, SiameseNet
 from scipy.optimize import least_squares
 import getpass
 import sys
@@ -139,14 +140,14 @@ def get_embedded_set(aps_vectors, feature_dataset, aps_left_out, feature_left_ou
 if __name__ == '__main__':
 
 
-    # Fetches data from postgres Database. Returns two dataframes containing the APS vectors and the Meta Features
-    FetchData = FetchAPSFeatureData('ndcg@5')
+    # Fetches meta-features and APS data. Returns two dataframes containing the APS vectors and the Meta Features
+    FetchData = FetchAPSFeatureData(metric = 'ndcg@5', num_features= 137)
     aps_dataset, feature_dataset = FetchData.get_data()
 
 
     aps_vectors_M = aps_dataset
 
-    baseline_errors = pd.read_csv('baseline_errors.csv')
+    baseline_errors = pd.read_csv('baseline_results/baseline_errors.csv')
 
     for i in range(10):
         baseline_errors[f'model{i}_mae_nearest'] = np.nan
@@ -172,8 +173,6 @@ if __name__ == '__main__':
             weights_path = f'weights/137_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
             aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
 
-            # res = test_left_out(aps_vec, feature_data, aps_left_out, feature_left_out, 66, weights_path)
-            # print(res)
             errors = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
             baseline_errors.loc[idx, f'model{run}_mae_nearest'] = errors[0]
             baseline_errors.loc[idx, f'model{run}_dist_nearest'] = errors[1]
@@ -186,4 +185,4 @@ if __name__ == '__main__':
         print("\n",baseline_errors.mean(numeric_only= True)[f'model{run}_mae_nearest'])
         print(baseline_errors.mean(numeric_only= True)[f'model{run}_mae_tri'])
 
-    baseline_errors.to_csv('final_baseline_errors.csv')
+    baseline_errors.to_csv('baseline_results/final_baseline_errors.csv')

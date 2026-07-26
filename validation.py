@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     aps_vectors_M = aps_dataset
 
-    baseline_errors = pd.read_csv('baseline_errors.csv')
+    baseline_errors = pd.read_csv('baseline_results/baseline_errors.csv')
     baseline_errors['model_mae'] = np.nan
     baseline_errors['model_dist'] = np.nan
 
