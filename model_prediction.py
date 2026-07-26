@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
-from  utils import sort_by_distance
 from sklearn.preprocessing import StandardScaler
+from scipy.spatial import distance
 from aps_data_handling import leave_one_out, FetchAPSFeatureData
 from network_blocks import EmbeddingNet, SiameseNet
 from scipy.optimize import least_squares
@@ -12,7 +12,34 @@ import sys
 
 
 
-def get_embedded_set(aps_vectors, feature_dataset, aps_left_out, feature_left_out, weights_path):
+def make_prediction(aps_vectors, feature_dataset, aps_left_out, feature_left_out, weights_path):
+
+    """
+    Generates APS vector predictions using Nearest Neighbor and Trilateration.
+
+    Loads the saved model weights, projects both the training dataset and the 
+    left-out validation dataset into the latent embedding space, and sorts the 
+    training datasets by their distance to the left-out dataset. 
+
+    It then calculates predictions in two ways:
+    1. Nearest Neighbor: Directly takes the APS vector of the closest embedding.
+    2. Trilateration: Uses the nearest anchors and their latent distances to 
+       solve a least-squares optimization problem, predicting a new APS vector.
+
+    Args:
+        aps_vectors (pd.DataFrame): Ground-truth APS coordinates for the training set.
+        feature_dataset (pd.DataFrame): Meta-features for the training set.
+        aps_left_out (pd.Series): Ground-truth APS vector for the left-out dataset.
+        feature_left_out (pd.Series): Meta-features for the left-out dataset.
+        weights_path (str): File path to the PyTorch model weights for this fold.
+
+    Returns:
+        tuple of float: A tuple containing four error metrics:
+            - mae_nearest (float): Mean Absolute Error of the Nearest Neighbor prediction.
+            - dist_nearest (float): RMSE/Euclidean distance of the Nearest Neighbor prediction.
+            - mae_tri (float): Mean Absolute Error of the Trilateration prediction.
+            - dist_tri (float): RMSE/Euclidean distance of the Trilateration prediction.
+    """
 
     dataset_size = len(aps_vectors)
     input_features = len(feature_dataset.columns[1:])
@@ -127,12 +154,39 @@ def get_embedded_set(aps_vectors, feature_dataset, aps_left_out, feature_left_ou
     
     squared_errors = (predicted_aps - actual_aps) ** 2
     dist_tri = np.sqrt(np.mean(squared_errors))
-    # nrmse = rmse / np.mean(actual_aps) if np.mean(actual_aps) != 0 else rmse
-
 
 
     return mae_nearest, dist_nearest, mae_tri, dist_tri
  
+
+def sort_by_distance(data, selected_ds):
+    """
+    Accepts a dataframe of vectors to be sorted according to the distance relative to "selected_ds".
+    selected_ds should be a pandas series. "data" should be a pandas dataframe with a column 'dataset'.
+    Returns the 'sorted_data' dataframe with the columns:
+    0 : 'dataset' 1 : 'Distance'  2-end : Respective vectors
+    """
+    df_data_dist = pd.DataFrame({'dataset': data['dataset']})
+    data_dist = []
+    dataset_size = len(data)
+    aps_vec1 = selected_ds.iloc[1:].astype(float).to_numpy()
+
+    for i in range(dataset_size):
+        
+        aps_vec2 = data.iloc[i, 1:].astype(float).to_numpy()
+
+        dist_data = distance.euclidean(aps_vec1, aps_vec2)
+
+        data_dist.append(dist_data)
+
+    df_data_dist['Distance'] = data_dist 
+    aps_dist_sorted = df_data_dist.sort_values('Distance', ascending= True).reset_index(drop= True)
+    data = data.set_index("dataset", drop= False)
+    sorted_data = data.loc[aps_dist_sorted['dataset'].to_list()].reset_index(drop= True)
+    sorted_data = pd.concat([aps_dist_sorted, sorted_data.iloc[:,1:]], axis=1)
+    data = data.reset_index(drop= True)
+
+    return sorted_data
 
 
 
@@ -173,7 +227,7 @@ if __name__ == '__main__':
             weights_path = f'weights/137_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
             aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
 
-            errors = get_embedded_set(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
+            errors = make_prediction(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
             baseline_errors.loc[idx, f'model{run}_mae_nearest'] = errors[0]
             baseline_errors.loc[idx, f'model{run}_dist_nearest'] = errors[1]
             baseline_errors.loc[idx, f'model{run}_mae_tri'] = errors[2]

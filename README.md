@@ -36,7 +36,7 @@ Defines the building blocks of the Siamese Neural Network architecture and the c
 ### Training & Validation Pipelines
 
 **`auto_train.py`**
-The orchestrator script for model training. It executes LOOCV by training 66 distinct models per run (each fold leaving out one dataset for validation). The entire 66-fold process is repeated 10 times to calculate robust, average performance metrics.
+The orchestrator script for model training. It executes LOOCV by training 66 distinct models per run (each fold leaving out one dataset for validation). The entire 66-fold process is repeated 10 times to calculate average performance metrics.
 
 **`validation.py`**
 Handles the evaluation of left-out folds during training. 

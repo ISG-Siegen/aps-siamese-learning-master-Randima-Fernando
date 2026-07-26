@@ -1,3 +1,30 @@
+"""
+Baseline Model Evaluation for Algorithm Performance Space (APS) Prediction.
+
+This script evaluates five traditional machine learning baselines for predicting 
+the APS vectors of RecSys datasets based on their meta-features. It uses a strict 
+Leave-One-Out Cross-Validation (LOOCV) approach for every dataset in the corpus.
+
+The evaluated models are:
+    1. Global Mean: Predicts the average APS vector of all training datasets.
+    2. K-Means: Clusters training data, predicting the mean APS vector of the assigned cluster.
+    3. K-Nearest Neighbors (KNN): Distance-weighted average of the 5 nearest neighbors.
+    4. Random Forest: Multi-output regression using an ensemble of decision trees.
+    5. XGBoost: Multi-output regression using gradient boosted trees.
+
+Data Pipeline:
+    - Fetches APS and meta-feature data using `FetchAPSFeatureData`.
+    - Applies standard scaling (`StandardScaler`) to meta-features. 
+
+Outputs:
+    - Calculates both the Vector MAE (Mean Absolute Error) and Euclidean distance 
+      between the predicted and ground-truth APS vectors.
+    - Prints the aggregated mean errors across all folds.
+    - Saves the detailed dataset-by-dataset error logs to `baseline_results/baseline_errors.csv`.
+"""
+
+
+
 import pandas as pd
 import numpy as np
 from aps_data_handling import FetchAPSFeatureData, leave_one_out
@@ -187,25 +214,4 @@ print(baseline_errors.mean(numeric_only= True))
 baseline_errors.to_csv('baseline_results/baseline_errors.csv', index=False)
 
 
-
-
-# sys.exit()
-
-
-# results_mae = pd.DataFrame({})
-# test_num = 8
-# metric = 'mae'
-# results_mae['dataset'] = pd.read_csv(f'training_results/{test_num}th_test/test_results_0.csv')['dataset']
-
-# for i in range(10):
-#     results_df = pd.read_csv(f'training_results/{test_num}th_test/test_results_{i}.csv')
-#     results_mae[f'{metric}_{i}'] = results_df[metric]
-
-
-# # print(results_df)
-# df_sorted = results_mae.assign(row_mean= results_mae.iloc[:,:].mean(numeric_only=True,axis=1)).sort_values("row_mean")
-# df_row_means = df_sorted['row_mean'].copy()
-# # print(df_sorted[(df_sorted['row_mean'] < 0.05)].reset_index())
-
-# print(baseline_errors.join(df_row_means))
 
