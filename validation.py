@@ -58,7 +58,7 @@ def test_left_out(aps_vectors, feature_dataset, aps_left_out, feature_left_out, 
     print(f"Using {device} device")
 
 
-    model = SiameseNet(EmbeddingNet(mode= 'leaky6', input_ftrs= input_features_num)).to(device)
+    model = SiameseNet(EmbeddingNet(network_num= 5 , input_ftrs= input_features_num)).to(device)
     model.load_state_dict(torch.load(weights_path, weights_only=True))
     model = model.to(device)
 

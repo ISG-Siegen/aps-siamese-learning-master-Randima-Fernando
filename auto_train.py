@@ -9,8 +9,6 @@ from validation import test_left_out
 
 
 
-
-
 # Fetches data from postgres Database. Returns two dataframes containing the APS vectors and the Meta Features
 
 FetchData = FetchAPSFeatureData(metric='ndcg@5', num_features= 137)
@@ -58,7 +56,7 @@ for training_run in range(10):
 
 
 
-        dataset = APSFeatureDataset(aps_vectors= aps_vectors, feature_vectors= feature_vectors, needed_range= 65)
+        dataset = APSFeatureDataset(aps_vectors= aps_vectors, feature_vectors= feature_vectors)
 
         device = (
                     "cuda"
@@ -83,7 +81,7 @@ for training_run in range(10):
 
         epochs = 20
 
-        model = SiameseNet(EmbeddingNet(mode= 'leaky6', input_ftrs= 137)).to(device)
+        model = SiameseNet(EmbeddingNet(network_num= 5, input_ftrs= 137)).to(device)
 
         loss_func = stress_loss
 

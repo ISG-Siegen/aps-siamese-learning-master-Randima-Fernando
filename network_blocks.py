@@ -54,20 +54,55 @@ class FeatureAttention(nn.Module):
 
 
 class EmbeddingNet(nn.Module):
-    def __init__(self, mode = 'normal', input_ftrs = 141):
+    def __init__(self, network_num = 'normal', input_ftrs = 141):
         super().__init__()
         self.attention = FeatureAttention(input_ftrs)
 
-        if  mode == 'leaky5':
+
+        if  network_num == 1:
+                    self.emb_net = nn.Sequential(
+                    nn.Linear(in_features= input_ftrs, out_features= 64),
+                    nn.LeakyReLU(),
+                    nn.Linear(64, 12)
+                )
+
+        if  network_num == 2:
             self.emb_net = nn.Sequential(
             nn.Linear(in_features= input_ftrs, out_features= 256),
-            nn.LeakyReLU(),
-            nn.Linear(256, 128),
+            nn.LeakyReLU(negative_slope= 0.01),
+            nn.Linear(256, 512),
+            nn.LeakyReLU(negative_slope= 0.01),
+            nn.Linear(512, 64),
+            nn.LeakyReLU(negative_slope= 0.01),
+            nn.Linear(64, 16)
+        )
+
+
+        elif  network_num == 3:
+            self.emb_net = nn.Sequential(
+            nn.Linear(in_features= input_ftrs, out_features= 64),
+            nn.ReLU(),
+            nn.Linear(64, 8)
+        )
+
+
+        elif  network_num == 4:
+            self.emb_net = nn.Sequential(
+            nn.Linear(in_features= input_ftrs, out_features= 128),
             nn.LeakyReLU(),
             nn.Linear(128, 16)
         )
         
-        elif  mode == 'leaky6':
+        elif  network_num == 5:
+            self.emb_net = nn.Sequential(
+            nn.Linear(in_features= input_ftrs, out_features= 256),
+            nn.LeakyReLU(negative_slope= 0.01),
+            nn.Linear(256, 128),
+            nn.LeakyReLU(negative_slope= 0.01),
+            nn.Linear(128, 16)
+        )
+        
+        elif  network_num == 6:
             self.emb_net = nn.Sequential(
             nn.Linear(in_features= input_ftrs, out_features= 256),
             nn.LeakyReLU(),

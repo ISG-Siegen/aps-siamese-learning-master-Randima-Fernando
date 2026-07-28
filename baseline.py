@@ -24,7 +24,6 @@ Outputs:
 """
 
 
-
 import pandas as pd
 import numpy as np
 from aps_data_handling import FetchAPSFeatureData, leave_one_out
@@ -34,15 +33,19 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.cluster import KMeans
 from xgboost import XGBRegressor
-import sys
+import argparse
+
+
+# Specify the meta-feature configuration to test [45, 75, or 137]
+num_meta_ftrs = 137
 
 
 
-FetchData = FetchAPSFeatureData('ndcg@5')
+FetchData = FetchAPSFeatureData('ndcg@5', num_features= num_meta_ftrs)
 aps_dataset, feature_dataset = FetchData.get_data()
 
 aps_dataset_complete = aps_dataset
-
+feature_dataset_complete = feature_dataset
 
 # Scaling the features
 feature_data = feature_dataset.iloc[:,1:].to_numpy()
@@ -52,6 +55,8 @@ scaled_data = scaler.fit_transform(feature_data)
 feature_vectors = pd.DataFrame(scaled_data, columns= feature_dataset.columns.tolist()[1:])
 feature_vectors.insert(0, column='dataset' ,value= feature_dataset['dataset'].to_list())
 feature_dataset_complete = feature_vectors
+
+
 
 baseline_errors= aps_dataset[['dataset']].copy()
 baseline_errors['floor_error'] = np.nan
@@ -107,7 +112,8 @@ for idx in range(dataset_size):
     
     X_test = feature_left_out.to_frame().T.iloc[:, 1:].to_numpy() # Shape: (1, 137)
     y_test = aps_left_out[1:].to_numpy().reshape(26) # Shape: (26,)
-    
+
+    # Fit the scaler only on training data
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -150,17 +156,26 @@ for idx in range(dataset_size):
 for idx in range(dataset_size):
     aps_vectors, feature_vectors, aps_left_out, feature_left_out = leave_one_out(aps_dataset_complete, feature_dataset_complete, index= idx)
 
+    X_train = feature_vectors.iloc[:, 1:].to_numpy()
+    y_train = aps_vectors.iloc[:, 1:].to_numpy()
+    X_test = feature_left_out.to_frame().T.iloc[:, 1:].to_numpy()
+    y_test = aps_left_out[1:].to_numpy().reshape(26)
+
+    # Scale strictly within the fold
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
 
     knn = KNeighborsRegressor(n_neighbors=5, metric= 'euclidean', weights= 'distance')
-    knn.fit(feature_vectors.iloc[:,1:], aps_vectors.iloc[:,1:])
-    knn_prediction = knn.predict(feature_left_out.to_frame().T.iloc[:,1:])
-    knn_prediction = knn_prediction.reshape(26)
-    aps_left_out = aps_left_out[1:].to_numpy()
+    knn.fit(X_train_scaled, y_train)
+    knn_prediction = knn.predict(X_test_scaled).reshape(26)
 
-    error = np.linalg.norm(knn_prediction - aps_left_out)
+
+    error = np.linalg.norm(knn_prediction - y_test)
     baseline_errors.loc[idx, 'knn_dist'] = error
 
-    error = np.mean(np.abs(knn_prediction - aps_left_out))
+    error = np.mean(np.abs(knn_prediction - y_test))
     baseline_errors.loc[idx, 'knn_error'] = error
     
 
@@ -180,19 +195,24 @@ for idx in range(dataset_size):
     X_test = feature_left_out.to_frame().T.iloc[:, 1:].to_numpy() # Shape: (1, 137)
     y_test = aps_left_out[1:].to_numpy().reshape(26) # Shape: (26,)
 
+    # Scaling within the fold
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+
     # Model A: Multioutput Random Forest
     rf = RandomForestRegressor(n_estimators=100, max_depth=12, random_state=42, n_jobs=-1)
-    rf.fit(X_train, y_train)
+    rf.fit(X_train_scaled, y_train)
 
-    rf_prediction = rf.predict(X_test).reshape(26)
+    rf_prediction = rf.predict(X_test_scaled).reshape(26)
 
     # Model B: Multi-output XGBoost 
     xgb = MultiOutputRegressor(XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=-1))
-    xgb.fit(X_train, y_train)
+    xgb.fit(X_train_scaled, y_train)
     
-    xgb_prediction = xgb.predict(X_test).reshape(26)
+    xgb_prediction = xgb.predict(X_test_scaled).reshape(26)
 
-    # print("rf: \n",rf_prediction, "\nxgb: \n", xgb_prediction )
 
     error_rf = rf_prediction - y_test
     error_xgb = xgb_prediction - y_test
@@ -211,7 +231,7 @@ for idx in range(dataset_size):
 
 print(baseline_errors)
 print(baseline_errors.mean(numeric_only= True))
-baseline_errors.to_csv('baseline_results/baseline_errors.csv', index=False)
+baseline_errors.to_csv(f'baseline_results/baseline_errors_{num_meta_ftrs}.csv', index=False)
 
 
 

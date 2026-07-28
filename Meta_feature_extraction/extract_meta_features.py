@@ -21,6 +21,8 @@ from kmodes.kmodes import KModes
 
 
 
+
+
 class SVDFeatures():
     """
     Preprocesses the implicit dataset accordingly and uses SVD to extract requisite meta features from dataset.
@@ -1110,12 +1112,13 @@ def get_top_n_percentage( df, col, threshold = 0.8):
 
 
 
-
+# Checks the availability of each dataset for meta-feature extraction
 file_path_meta = Path('datasets_info.csv')
 meta_df = pd.read_csv(file_path_meta).set_index('dataset', drop= False)
 available_data = meta_df[meta_df['downloaded'] == 1]['dataset'].to_list()
 meta_df = meta_df.loc[available_data]
 meta_df = meta_df.iloc[:,1:2]
+
 
 meta_features_labels = ['num_users', 'num_items', 'num_inter', 'density', 'user_item_ratio', 'item_user_ratio', 'highest_num_rating_u', 
                         'lowest_num_rating_u', 'highest_num_rating_i', 'lowest_num_rating_i', 'mean_num_rating_u', 'mean_num_rating_i', 'p_inter_top_user', 
@@ -1150,13 +1153,15 @@ meta_features_labels = ['num_users', 'num_items', 'num_inter', 'density', 'user_
                         'tree_val_score','tree_overfit_gap','tree_minmax_prob_gap','tree_avg_path_length', 'tree_stability_bootstrap'
 ]
 
-empty_df = pd.DataFrame(columns= meta_features_labels, index= meta_df.index)
 
+empty_df = pd.DataFrame(columns= meta_features_labels, index= meta_df.index)
 meta_df = pd.concat([meta_df, empty_df], axis= 1)
 
+# Saves the final meta-feature collection within the Dataset_Meta_Features file
+ftrs_save_path = Path(__file__).resolve().parent.parent.joinpath('Dataset_Meta_Features/Dataset_Meta_features_new.csv')
 
 
-for i in (available_data[20:21]):
+for i in available_data:
     dataset_name = i
     file_path = Path(f'datasets/{dataset_name}/processed/interactions.csv')
 
@@ -1164,6 +1169,7 @@ for i in (available_data[20:21]):
         df = pd.read_csv(file_path)
     else:
         print("Error. No data")
+
 
 
     # Original features
@@ -1290,6 +1296,7 @@ for i in (available_data[20:21]):
     meta_df.loc[i, 'ratio_similar_0_9_users'] = round((num_similar_0_9_profiles/df['user'].nunique()),6)
     meta_df.loc[i, 'freq_similar_0_9_u_pattern'] = freq_similar_0_9_u_pattern
 
+    
     # Extract the singular value decomp features
     svd = SVDFeatures(df)
     meta_features = svd.extract_svd_features()
@@ -1327,7 +1334,7 @@ for i in (available_data[20:21]):
 
 
     # Extract meta features from k-modes clustering
-
+    
 
     k_modes = KModesClusteringFeatures(df= df)
     meta_features = k_modes.extract_kmodes_meta_features()
@@ -1351,7 +1358,6 @@ for i in (available_data[20:21]):
     meta_df.loc[i, 'kmodes_silhouette_hamming_mean'] = round(meta_features['kmodes_silhouette_hamming_mean'],6) 
     meta_df.loc[i, 'kmodes_silhouette_hamming_median'] = round(meta_features['kmodes_silhouette_hamming_median'],6) 
     meta_df.loc[i, 'kmodes_cluster_purity_popularity'] = round(meta_features['kmodes_cluster_purity_popularity'],6) 
-    meta_df.loc[i, 'kmodes_empty_clusters'] = round(meta_features['kmodes_empty_clusters'],6) 
 
     # Extract meta features describing the behavior of the kmodes clusters
     meta_features = k_modes.extract_behavioral_meta_features()
@@ -1360,12 +1366,11 @@ for i in (available_data[20:21]):
     meta_df.loc[i, 'kmodes_rank_corr_mean'] = round(meta_features['kmodes_rank_corr_mean'],6) 
     meta_df.loc[i, 'kmodes_rank_corr_std'] = round(meta_features['kmodes_rank_corr_std'],6)   
     meta_df.loc[i, 'kmodes_centroid_dist_mean'] = round(meta_features['kmodes_centroid_dist_mean'],6) 
-    meta_df.loc[i, 'kmodes_centroid_dist_skew'] = round(meta_features['kmodes_centroid_dist_skew'],6) 
 
     # Extract meta features indicating the robustness of the kmodes clusters
     meta_features = k_modes.measure_kmodes_stability()
     meta_df.loc[i, 'kmodes_stability_avg_drift'] = round(meta_features['kmodes_stability_avg_drift'],6) 
-    meta_df.loc[i, 'kmodes_stability_variance'] = round(meta_features['kmodes_stability_variance'],6) 
+
 
 
 
@@ -1438,17 +1443,12 @@ for i in (available_data[20:21]):
 
                                                     
     print(meta_df)
-    meta_df.to_csv('temp_df.csv', index=False)
 
 
 
-    
+   
 meta_df = meta_df.reset_index(drop= True)
+meta_df.to_csv(ftrs_save_path, index=False)
 
-print(meta_df)
-meta_df.to_csv('unpruned_updated_df.csv', index=False)
-
-# filled_meta_df = fill_df(meta_df, fill= 'mean')
-# filled_meta_df.to_csv('unpruned_filled_df.csv', index= False)
 
 

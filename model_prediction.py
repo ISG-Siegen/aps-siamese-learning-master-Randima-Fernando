@@ -7,6 +7,7 @@ from scipy.spatial import distance
 from aps_data_handling import leave_one_out, FetchAPSFeatureData
 from network_blocks import EmbeddingNet, SiameseNet
 from scipy.optimize import least_squares
+import time
 import getpass
 import sys
 
@@ -54,7 +55,7 @@ def make_prediction(aps_vectors, feature_dataset, aps_left_out, feature_left_out
 
 
 
-    model = SiameseNet(EmbeddingNet(mode= 'leaky5', input_ftrs= input_features)).to(device)
+    model = SiameseNet(EmbeddingNet(network_num= 5, input_ftrs= input_features)).to(device)
     model.load_state_dict(torch.load(weights_path, weights_only=True))
     model = model.to(device)
 
@@ -110,7 +111,7 @@ def make_prediction(aps_vectors, feature_dataset, aps_left_out, feature_left_out
     # Trilateration
 
     # Define nearest neighbors for trilateration
-    k_anchors = min(2, len(embedded_sorted)) 
+    k_anchors = min(3, len(embedded_sorted)) 
     
     anchor_aps_list = []
     target_distances = []
@@ -193,15 +194,19 @@ def sort_by_distance(data, selected_ds):
 
 if __name__ == '__main__':
 
+    # Specify the meta-feature configuration to test [45, 75, or 137]
+    num_meta_ftrs = 137
+
 
     # Fetches meta-features and APS data. Returns two dataframes containing the APS vectors and the Meta Features
-    FetchData = FetchAPSFeatureData(metric = 'ndcg@5', num_features= 137)
+    FetchData = FetchAPSFeatureData(metric = 'ndcg@5', num_features= num_meta_ftrs)
     aps_dataset, feature_dataset = FetchData.get_data()
 
 
     aps_vectors_M = aps_dataset
+    feature_dataset_M = feature_dataset
 
-    baseline_errors = pd.read_csv('baseline_results/baseline_errors.csv')
+    baseline_errors = pd.read_csv(f'baseline_results/baseline_errors_{num_meta_ftrs}.csv')
 
     for i in range(10):
         baseline_errors[f'model{i}_mae_nearest'] = np.nan
@@ -211,32 +216,37 @@ if __name__ == '__main__':
 
 
 
-    # Scaling the features
-    feature_data = feature_dataset.iloc[:,1:].to_numpy()
-    scaler = StandardScaler(with_mean= True, with_std= True)
-    scaled_data = scaler.fit_transform(feature_data)
-
-    feature_vectors = pd.DataFrame(scaled_data, columns= feature_dataset.columns.tolist()[1:])
-    feature_vectors.insert(0, column='dataset' ,value= feature_dataset['dataset'].to_list())
-    feature_dataset_M = feature_vectors
-
 
     mae = []
     for run in range(10):
         for idx in range(66):
-            weights_path = f'weights/137_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
-            aps_vec, feature_data, aps_left_out, feature_left_out = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
 
+
+            weights_path = f'weights/{num_meta_ftrs}_meta_features/training_run_{run}/APS_SiamNet_weights_{idx}.pth'
+            aps_vec, feature_data_raw, aps_left_out, feature_left_out_raw = leave_one_out(aps_vectors_M, feature_dataset_M, index= idx)
+
+
+            feature_data = feature_data_raw.copy()
+            feature_left_out = feature_left_out_raw.copy()
+
+            # Scale the training and test meta features 
+            scaler = StandardScaler(with_mean=True, with_std=True)
+            feature_data.iloc[:, 1:] = scaler.fit_transform(feature_data.iloc[:, 1:].to_numpy())
+
+            test_features_scaled = scaler.transform(feature_left_out.iloc[1:].to_numpy().reshape(1, -1))
+            feature_left_out.iloc[1:] = test_features_scaled.flatten()
+
+            # Pass scaled data into prediction function
             errors = make_prediction(aps_vec, feature_data, aps_left_out, feature_left_out, weights_path)
             baseline_errors.loc[idx, f'model{run}_mae_nearest'] = errors[0]
             baseline_errors.loc[idx, f'model{run}_dist_nearest'] = errors[1]
             baseline_errors.loc[idx, f'model{run}_mae_tri'] = errors[2]
             baseline_errors.loc[idx, f'model{run}_dist_tri'] = errors[3]
             mae.append(errors[0])
-        
+
         
         print(baseline_errors)
-        print("\n",baseline_errors.mean(numeric_only= True)[f'model{run}_mae_nearest'])
-        print(baseline_errors.mean(numeric_only= True)[f'model{run}_mae_tri'])
+        print("\n",baseline_errors.mean(numeric_only= True)[f'model{run}_mae_nearest'], '\t', baseline_errors.mean(numeric_only= True)[f'model{run}_mae_tri'])
 
-    baseline_errors.to_csv('baseline_results/final_baseline_errors.csv')
+
+    baseline_errors.to_csv(f'baseline_results/snn_baseline_errors_{num_meta_ftrs}.csv')
